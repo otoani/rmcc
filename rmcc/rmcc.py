@@ -1,17 +1,58 @@
 from dataclasses import dataclass
 
-from rmcc.exception import UnimplementedError
+from .exception import InvalidElementError
 
 
 @dataclass
 class MeshCode:
-    primary_y: int  # lat
-    primary_x: int  # lon
-    secondary_y: int
-    secondary_x: int
-    tertiary_y: int
-    tertiary_x: int
-    quaternary: int
+    __primary_y: int  # lat
+    __primary_x: int  # lon
+    __secondary_y: int
+    __secondary_y: int
+    __secondary_x: int
+    __tertiary_y: int
+    __tertiary_x: int
+    __quaternary_y: int
+    __quaternary_x: int
+    __dimension: int
+
+    def __init__(
+        self,
+        primary_y,
+        primary_x,
+        secondary_y,
+        secondary_x,
+        tertiary_y,
+        tertiary_x,
+        quaternary,
+    ):
+        self.__primary_y = primary_y
+        self.__primary_x = primary_x
+        self.__secondary_y = secondary_y
+        self.__secondary_x = secondary_x
+        self.__tertiary_y = tertiary_y
+        self.__tertiary_x = tertiary_x
+        if quaternary < 0:
+            self.__quaternary_y = -1
+            self.__quaternary_x = -1
+        else:
+            b = format(quaternary, "02b")
+            self.__quaternary_y = int(b[0])
+            self.__quaternary_x = int(b[1])
+
+        if self.__primary_x < 0 or self.__primary_y < 0:
+            raise InvalidElementError(self)
+        if self.__secondary_x < 0 or self.__secondary_y < 0:
+            self.__dimension = 1
+            return
+        if self.__tertiary_x < 0 or self.__tertiary_y < 0:
+            self.__dimension = 2
+            return
+        if self.__quaternary_x < 0 or self.__quaternary_y < 0:
+            self.__dimension = 3
+            return
+        self.__dimension = 4
+        return
 
     @staticmethod
     def parse(code):
@@ -28,90 +69,97 @@ class MeshCode:
         quaternary: int = int(tmp[3]) if dimension >= 4 else -1
 
         return MeshCode(
-            primary_y=primary_y,
-            primary_x=primary_x,
-            secondary_y=secondary_y,
-            secondary_x=secondary_x,
-            tertiary_y=tertiary_y,
-            tertiary_x=tertiary_x,
-            quaternary=quaternary,
+            primary_y,
+            primary_x,
+            secondary_y,
+            secondary_x,
+            tertiary_y,
+            tertiary_x,
+            quaternary,
         )
 
     def getDimension(self) -> int:
-        if self.quaternary >= 0:
-            return 4
-        if self.tertiary_x >= 0 or self.tertiary_y >= 0:
-            return 3
-        if self.secondary_x >= 0 or self.secondary_y >= 0:
-            return 2
-        return 1
+        return self.__dimension
 
     def getMeshCode(self) -> str:
-        if self.quaternary >= 0:
-            return "{}{}-{}{}-{}{}-{}".format(
-                self.primary_y,
-                self.primary_x,
-                self.secondary_y,
-                self.secondary_x,
-                self.tertiary_y,
-                self.tertiary_x,
-                self.quaternary,
-            )
-        if self.tertiary_x >= 0 or self.tertiary_y >= 0:
-            return "{}{}-{}{}-{}{}".format(
-                self.primary_y,
-                self.primary_x,
-                self.secondary_y,
-                self.secondary_x,
-                self.tertiary_y,
-                self.tertiary_x,
-            )
-        if self.secondary_x >= 0 or self.secondary_y >= 0:
+        if self.__primary_x < 0 or self.__primary_y < 0:
+            raise InvalidElementError(self)
+        if self.__secondary_x < 0 or self.__secondary_y < 0:
+            return "{}{}".format(self.__primary_y, self.__primary_x)
+        if self.__tertiary_x < 0 or self.__tertiary_y < 0:
             return "{}{}-{}{}".format(
-                self.primary_y,
-                self.primary_x,
-                self.secondary_y,
-                self.secondary_x,
+                self.__primary_y,
+                self.__primary_x,
+                self.__secondary_y,
+                self.__secondary_x,
             )
-        return "{}{}".format(self.primary_y, self.primary_x)
+        if self.__quaternary_x < 0 or self.__quaternary_y < 0:
+            return "{}{}-{}{}-{}{}".format(
+                self.__primary_y,
+                self.__primary_x,
+                self.__secondary_y,
+                self.__secondary_x,
+                self.__tertiary_y,
+                self.__tertiary_x,
+            )
+        return "{}{}-{}{}-{}{}-{}".format(
+            self.__primary_y,
+            self.__primary_x,
+            self.__secondary_y,
+            self.__secondary_x,
+            self.__tertiary_y,
+            self.__tertiary_x,
+            self.__quaternary_x + self.__quaternary_y * 2,
+        )
 
     def shiftPrimary(self, dy, dx):
-        self.primary_y += dy
-        self.primary_x += dx
-
-        return
+        self.__primary_y += dy
+        self.__primary_x += dx
 
     def shiftSecondary(self, dy, dx):
-        self.secondary_y += dy
-        self.secondary_x += dx
+        self.__secondary_y += dy
+        self.__secondary_x += dx
 
-        qy, ry = self.secondary_y // 8, self.secondary_y % 8
-        qx, rx = self.secondary_x // 8, self.secondary_x % 8
+        qy, ry = self.__secondary_y // 8, self.__secondary_y % 8
+        qx, rx = self.__secondary_x // 8, self.__secondary_x % 8
 
+        self.__secondary_y, self.__secondary_x = ry, rx
+        if self.getDimension() < 2:
+            return
         self.shiftPrimary(qy, qx)
-        self.secondary_y, self.secondary_x = ry, rx
-
-        return
 
     def shiftTertiary(self, dy, dx):
-        self.tertiary_y += dy
-        self.tertiary_x += dx
+        self.__tertiary_y += dy
+        self.__tertiary_x += dx
 
-        qy, ry = self.tertiary_y // 10, self.tertiary_y % 10
-        qx, rx = self.tertiary_x // 10, self.tertiary_x % 10
+        qy, ry = self.__tertiary_y // 10, self.__tertiary_y % 10
+        qx, rx = self.__tertiary_x // 10, self.__tertiary_x % 10
 
+        self.__tertiary_y, self.__tertiary_x = ry, rx
+        if self.getDimension() < 3:
+            return
         self.shiftSecondary(qy, qx)
-        self.tertiary_y, self.tertiary_x = ry, rx
 
-        return
+    def shiftQuaternary(self, dy, dx):
+        self.__quaternary_y += dy
+        self.__quaternary_x += dx
+
+        qy, ry = self.__quaternary_y // 2, self.__quaternary_y % 2
+        qx, rx = self.__quaternary_x // 2, self.__quaternary_x % 2
+
+        self.__quaternary_y, self.__quaternary_x = ry, rx
+        if self.getDimension() < 4:
+            return
+        self.shiftTertiary(qy, qx)
 
     def shift(self, dy, dx):
         if self.getDimension() == 4:
-            raise UnimplementedError(str(self.getDimension()))
-        if self.getDimension == 3:
+            self.shiftQuaternary(dy, dx)
+            return
+        if self.getDimension() == 3:
             self.shiftTertiary(dy, dx)
             return
-        if self.getDimension == 2:
+        if self.getDimension() == 2:
             self.shiftSecondary(dy, dx)
             return
         self.shiftPrimary(dy, dx)
