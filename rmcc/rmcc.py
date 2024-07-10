@@ -36,12 +36,14 @@ class MeshCode:
             self.__quaternary_y = -1
             self.__quaternary_x = -1
         else:
-            b = format(quaternary, "02b")
+            b = format(quaternary - 1, "02b")
             self.__quaternary_y = int(b[0])
             self.__quaternary_x = int(b[1])
 
         if self.__primary_x < 0 or self.__primary_y < 0:
-            raise InvalidElementError(self)
+            raise InvalidElementError(
+                "y=" + str(self.__primary_y) + ", x=" + str(self.__primary_x)
+            )
         if self.__secondary_x < 0 or self.__secondary_y < 0:
             self.__dimension = 1
             return
@@ -82,8 +84,6 @@ class MeshCode:
         return self.__dimension
 
     def getMeshCode(self) -> str:
-        if self.__primary_x < 0 or self.__primary_y < 0:
-            raise InvalidElementError(self)
         if self.__secondary_x < 0 or self.__secondary_y < 0:
             return "{}{}".format(self.__primary_y, self.__primary_x)
         if self.__tertiary_x < 0 or self.__tertiary_y < 0:
@@ -109,7 +109,7 @@ class MeshCode:
             self.__secondary_x,
             self.__tertiary_y,
             self.__tertiary_x,
-            self.__quaternary_x + self.__quaternary_y * 2,
+            self.__quaternary_x + self.__quaternary_y * 2 + 1,
         )
 
     def shiftPrimary(self, dy, dx):
@@ -124,7 +124,7 @@ class MeshCode:
         qx, rx = self.__secondary_x // 8, self.__secondary_x % 8
 
         self.__secondary_y, self.__secondary_x = ry, rx
-        if self.getDimension() < 2:
+        if qy == 0 and qx == 0:
             return
         self.shiftPrimary(qy, qx)
 
@@ -136,7 +136,7 @@ class MeshCode:
         qx, rx = self.__tertiary_x // 10, self.__tertiary_x % 10
 
         self.__tertiary_y, self.__tertiary_x = ry, rx
-        if self.getDimension() < 3:
+        if qy == 0 and qx == 0:
             return
         self.shiftSecondary(qy, qx)
 
@@ -148,7 +148,7 @@ class MeshCode:
         qx, rx = self.__quaternary_x // 2, self.__quaternary_x % 2
 
         self.__quaternary_y, self.__quaternary_x = ry, rx
-        if self.getDimension() < 4:
+        if qy == 0 and qx == 0:
             return
         self.shiftTertiary(qy, qx)
 
@@ -164,3 +164,19 @@ class MeshCode:
             return
         self.shiftPrimary(dy, dx)
         return
+
+    def calNeighbors(self, distance):
+        coordinates: list = self.__calCoordinates(distance)
+        neighbors: list = []
+        for coordinate in coordinates:
+            target: MeshCode = MeshCode.parse(self.getMeshCode())
+            target.shift(coordinate[1], coordinate[0])
+            neighbors.append(target)
+        return neighbors
+
+    def __calCoordinates(self, distance):
+        coordinates = []
+        for x in range(-distance, distance + 1, 1):
+            for y in range(-distance, distance + 1, 1):
+                coordinates.append([x, y])
+        return coordinates
