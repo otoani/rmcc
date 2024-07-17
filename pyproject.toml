@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "rmcc"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "The rmcc is Regional Mesh Code Calculator."
+authors = ["otoani <otoani11541@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
